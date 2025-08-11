@@ -1,0 +1,75 @@
+#!/bin/bash
+set -e
+
+echo "📦 Dodawanie natywnego widgeta Android do projektu Flutter..."
+
+# 1. Tworzenie katalogów Java dla widgeta
+mkdir -p android/app/src/main/java/com/example/appwidget
+
+# 2. Tworzenie pliku AppWidgetProvider
+cat > android/app/src/main/java/com/example/appwidget/MyAppWidgetProvider.java <<'EOF'
+package com.example.appwidget;
+
+import android.app.PendingIntent;
+import android.appwidget.AppWidgetManager;
+import android.appwidget.AppWidgetProvider;
+import android.content.Context;
+import android.content.Intent;
+import android.widget.RemoteViews;
+import com.example.myapp.R;
+
+public class MyAppWidgetProvider extends AppWidgetProvider {
+    @Override
+    public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
+        for (int appWidgetId : appWidgetIds) {
+            RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_layout);
+
+            Intent intent = new Intent(context, MainActivity.class);
+            PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+            views.setOnClickPendingIntent(R.id.widget_text, pendingIntent);
+
+            appWidgetManager.updateAppWidget(appWidgetId, views);
+        }
+    }
+}
+EOF
+
+# 3. Layout widgeta
+mkdir -p android/app/src/main/res/layout
+cat > android/app/src/main/res/layout/widget_layout.xml <<'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#222">
+
+    <TextView
+        android:id="@+id/widget_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Hello Widget!"
+        android:textSize="18sp"
+        android:textColor="#FFF"
+        android:layout_centerInParent="true" />
+</RelativeLayout>
+EOF
+
+# 4. Dodanie wpisu do AndroidManifest.xml
+MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
+sed -i '/<\/application>/i \
+        <receiver android:name="com.example.appwidget.MyAppWidgetProvider" android:exported="true">\n            <intent-filter>\n                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />\n            </intent-filter>\n            <meta-data android:name="android.appwidget.provider"\n                android:resource="@xml/my_app_widget_info" />\n        </receiver>\n' "$MANIFEST_PATH"
+
+# 5. Plik XML konfiguracji widgeta
+mkdir -p android/app/src/main/res/xml
+cat > android/app/src/main/res/xml/my_app_widget_info.xml <<'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="50dp"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/widget_layout"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen" />
+EOF
+
+echo "✅ Widget Android został dodany!"
